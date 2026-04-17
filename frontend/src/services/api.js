@@ -1,8 +1,15 @@
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
+const envApiUrl = import.meta.env.VITE_API_URL;
+const defaultApiUrl = import.meta.env.DEV ? 'http://localhost:5000' : '';
+const API_URL = (envApiUrl || defaultApiUrl).replace(/\/+$/, '');
+
+if (import.meta.env.PROD && !envApiUrl) {
+  console.warn('[api] Missing VITE_API_URL in production build. Falling back to same-origin /api path.');
+}
 
 export async function optimizeTrip({ userData, trip }) {
   try {
-    const response = await fetch(`${API_URL}/api/optimize`, {
+    const endpoint = API_URL ? `${API_URL}/api/optimize` : '/api/optimize';
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

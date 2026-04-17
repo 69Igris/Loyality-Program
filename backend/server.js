@@ -5,15 +5,27 @@ import explainRoutes from './routes/explain.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+
+function normalizeOrigin(origin) {
+  return `${origin}`.trim().replace(/\/+$/, '').toLowerCase();
+}
+
+const defaultOrigins = 'http://localhost:5173,http://127.0.0.1:5173';
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || defaultOrigins)
   .split(',')
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin))
   .filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const normalizedOrigin = normalizeOrigin(origin);
+      if (ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(normalizedOrigin)) {
         callback(null, true);
         return;
       }

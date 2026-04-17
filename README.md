@@ -134,11 +134,18 @@ Frontend env files:
 
 - frontend/.env
 - frontend/.env.example
+- frontend/.env.production.example
 
 Required key:
 
 ```env
 VITE_API_URL=http://localhost:5000
+```
+
+For production deployments (Vercel), use your hosted backend URL:
+
+```env
+VITE_API_URL=https://your-backend-domain.onrender.com
 ```
 
 Backend env files:
@@ -152,6 +159,12 @@ Supported keys:
 PORT=5000
 CORS_ORIGIN=http://localhost:5173
 RAG_SERVICE_URL=http://127.0.0.1:8000
+```
+
+For production backend deployment, include your Vercel domain in CORS_ORIGIN as a comma-separated list:
+
+```env
+CORS_ORIGIN=http://localhost:5173,https://your-frontend-domain.vercel.app
 ```
 
 RAG service env files:
