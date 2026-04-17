@@ -82,6 +82,8 @@ const DEMAND_MULTIPLIER = {
   mumbai: 1.2,
 };
 
+const RAG_SERVICE_URL = (process.env.RAG_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
+
 const SUPPORTED_CITY_SET = new Set(CITIES);
 
 function toNumber(value) {
@@ -543,7 +545,7 @@ export async function explainLoyalty(req, res) {
       };
 
       console.log('[optimizer] Sending plan to RAG:', ragPayload);
-      const ragResponse = await fetch('http://127.0.0.1:8000/explain', {
+      const ragResponse = await fetch(`${RAG_SERVICE_URL}/explain`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

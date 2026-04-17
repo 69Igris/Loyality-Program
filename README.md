@@ -128,6 +128,83 @@ source venv/bin/activate
 uvicorn main:app --reload --port 8000
 ```
 
+## Environment Files
+
+Frontend env files:
+
+- frontend/.env
+- frontend/.env.example
+
+Required key:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+Backend env files:
+
+- backend/.env
+- backend/.env.example
+
+Supported keys:
+
+```env
+PORT=5000
+CORS_ORIGIN=http://localhost:5173
+RAG_SERVICE_URL=http://127.0.0.1:8000
+```
+
+RAG service env files:
+
+- rag_service/.env
+- rag_service/.env.example
+
+Required key:
+
+```env
+GROQ_API_KEY=your_groq_api_key_here
+```
+
+## Hosting (Vercel + Render)
+
+Files added for hosting:
+
+- frontend/vercel.json: SPA rewrite to index.html
+- render.yaml: Render blueprint for backend and rag_service
+
+### Deploy Frontend on Vercel
+
+1. Import repository into Vercel
+2. Set root directory to frontend
+3. Build command: npm run build
+4. Output directory: dist
+5. Add env variable:
+
+```env
+VITE_API_URL=https://your-backend-domain.onrender.com
+```
+
+### Deploy Backend on Render
+
+Render can use the included render.yaml blueprint.
+
+Set these environment variables for backend service:
+
+```env
+CORS_ORIGIN=https://your-frontend-domain.vercel.app
+RAG_SERVICE_URL=https://your-rag-domain.onrender.com
+```
+
+PORT is provided automatically by Render.
+
+### Deploy RAG Service on Render
+
+Set this environment variable for rag service:
+
+```env
+GROQ_API_KEY=your_real_groq_key
+```
+
 ## API Contract
 
 Request body for POST /api/optimize:
