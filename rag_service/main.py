@@ -345,6 +345,11 @@ def _needs_fallback(explanation: str, best_option: OptionItem) -> bool:
     return False
 
 
+@app.get("/")
+def health():
+    return {"status": "running"}
+
+
 @app.post("/explain", response_model=ExplainResponse)
 def explain(request: ExplainRequest):
     if index is None:
@@ -442,3 +447,10 @@ If any option violates these rules, IGNORE that usage and explain correctly."""
 
 # To run locally:
 # uvicorn main:app --reload --port 8000
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
