@@ -1,6 +1,8 @@
+const API_URL = 'http://localhost:5000';
+
 export async function optimizeTrip({ userData, trip }) {
   try {
-    const response = await fetch('http://localhost:5001/api/optimize', {
+    const response = await fetch(`${API_URL}/api/optimize`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

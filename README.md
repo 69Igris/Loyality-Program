@@ -2,6 +2,15 @@
 
 A full-stack travel optimization app that helps users decide how to redeem loyalty points and pay the remaining amount with cards.
 
+## Project Structure
+
+```text
+project/
+├── frontend/      # React + Vite UI
+├── backend/       # Node + Express optimizer API
+└── rag_service/   # Python FastAPI explanation service
+```
+
 The app combines:
 
 - React + Vite frontend (trip input, JSON upload, strategy dashboard)
@@ -32,7 +41,7 @@ The app combines:
 
 ### 2) Optimizer API (Express)
 
-Base URL: http://localhost:5001
+Base URL: http://localhost:5000
 
 - GET /health
 - POST /api/optimize
@@ -56,42 +65,60 @@ Consumes optimizer context and returns a concise explanation while enforcing str
 - npm
 - Python 3.10+
 
-### 1) Install frontend + backend dependencies
+### 1) Install frontend dependencies
 
-From project root:
+From frontend folder:
 
 ```bash
+cd frontend
 npm install
 ```
 
-### 2) Configure and install RAG service dependencies
+### 2) Install backend dependencies
+
+From backend folder:
+
+```bash
+cd backend
+npm install
+```
+
+### 3) Configure and install RAG service dependencies
 
 From rag_service folder:
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install fastapi uvicorn python-dotenv groq sentence-transformers faiss-cpu numpy
+pip install -r requirements.txt
 ```
 
-Create rag_service/.env:
+Create a local env file from the template:
+
+```bash
+cp .env.example .env
+```
+
+Then set your real key in rag_service/.env:
 
 ```env
 GROQ_API_KEY=your_groq_api_key_here
 ```
 
-### 3) Run all services
+### 4) Run all services
 
-Terminal A (project root, frontend):
+Terminal A (frontend):
 
 ```bash
+cd frontend
 npm run dev
 ```
 
-Terminal B (project root, optimizer API):
+Terminal B (backend):
 
 ```bash
-npm run server
+cd backend
+npm start
 ```
 
 Terminal C (rag_service):
@@ -196,7 +223,7 @@ The optimizer enforces these core rules:
 ## Troubleshooting
 
 - If frontend is running but API calls fail:
-	- Ensure optimizer API is up on port 5001
+	- Ensure optimizer API is up on port 5000
 - If explanation is missing:
 	- Ensure FastAPI RAG service is up on port 8000
 	- Ensure GROQ_API_KEY is set in rag_service/.env
@@ -205,10 +232,12 @@ The optimizer enforces these core rules:
 
 ## Scripts
 
-From project root:
+Frontend scripts (run from frontend folder):
 
 - npm run dev: Start Vite frontend
-- npm run server: Start Express optimizer API
-- npm run lint: Run ESLint
 - npm run build: Build frontend
 - npm run preview: Preview production build
+
+Backend scripts (run from backend folder):
+
+- npm start: Start Express optimizer API
