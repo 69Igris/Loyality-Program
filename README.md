@@ -99,9 +99,10 @@ Create a local env file from the template:
 cp .env.example .env
 ```
 
-Then set your real key in rag_service/.env:
+Then configure rag_service/.env:
 
 ```env
+PORT=8000
 GROQ_API_KEY=your_groq_api_key_here
 ```
 
@@ -172,11 +173,14 @@ RAG service env files:
 - rag_service/.env
 - rag_service/.env.example
 
-Required key:
+Supported keys:
 
 ```env
+PORT=8000
 GROQ_API_KEY=your_groq_api_key_here
 ```
+
+The RAG app reads port from `PORT` (defaults to 8000 if unset).
 
 ## Hosting (Vercel + Render)
 
@@ -217,6 +221,8 @@ Set this environment variable for rag service:
 ```env
 GROQ_API_KEY=your_real_groq_key
 ```
+
+PORT is provided automatically by Render.
 
 ## API Contract
 
