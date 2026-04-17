@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-app-gradient font-sans text-slate-100 antialiased;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply rounded-3xl border border-white/15 bg-white/[0.06] shadow-card backdrop-blur-2xl;
+  }
+
+  .gradient-title {
+    background: linear-gradient(110deg, #38bdf8 0%, #818cf8 35%, #c084fc 70%, #38bdf8 100%);
+    background-size: 220% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradientShift 8s linear infinite;
+  }
+
+  .input-field {
+    @apply h-12 rounded-xl border border-white/15 bg-slate-950/60 px-4 text-sm text-slate-100 placeholder:text-slate-400 outline-none transition duration-300 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20;
+  }
+
+  .shimmer-card {
+    @apply relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05];
+  }
+
+  .shimmer-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.15), transparent 80%);
+    animation: shimmer 1.8s infinite;
+  }
+}
