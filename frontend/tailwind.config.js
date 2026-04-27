@@ -4,32 +4,70 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        sans: ['"Inter"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        serif: ['"Instrument Serif"', 'ui-serif', 'Georgia', 'serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
+      colors: {
+        paper: {
+          DEFAULT: '#F5F1EA',
+          soft: '#EFEAE0',
+          card: '#FFFFFF',
+        },
+        ink: {
+          DEFAULT: '#15171A',
+          80: '#2A2D31',
+          60: '#5A5E66',
+          40: '#8A8E96',
+          20: '#C5C7CC',
+          10: '#E5E0D5',
+        },
+        navy: {
+          DEFAULT: '#1F3A5F',
+          deep: '#152A47',
+          soft: '#3A5778',
+        },
+        moss: {
+          DEFAULT: '#2E5A3F',
+          soft: '#4A7359',
+          mist: '#E3ECDF',
+        },
+        clay: {
+          DEFAULT: '#B7472A',
+          soft: '#D86A4F',
+          mist: '#F2DDD2',
+        },
+        ochre: {
+          DEFAULT: '#C28A2C',
+          mist: '#F1E3C2',
+        },
+      },
+      letterSpacing: {
+        editorial: '-0.02em',
+        widelabel: '0.14em',
+      },
+      borderRadius: {
+        sm2: '4px',
       },
       boxShadow: {
-        glow: '0 20px 60px -25px rgba(59, 130, 246, 0.45)',
-        card: '0 24px 60px -30px rgba(15, 23, 42, 0.9)',
-      },
-      backgroundImage: {
-        'app-gradient':
-          'radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.25), transparent 38%), radial-gradient(circle at 80% 0%, rgba(147, 51, 234, 0.2), transparent 34%), linear-gradient(140deg, #020617 0%, #0b1120 48%, #111827 100%)',
+        page: '0 1px 0 0 rgba(21,23,26,0.04), 0 12px 40px -24px rgba(21,23,26,0.18)',
+        line: 'inset 0 -1px 0 0 #E5E0D5',
       },
       keyframes: {
-        shimmer: {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(100%)' },
+        fadeUp: {
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        gradientShift: {
-          '0%': { backgroundPosition: '0% 50%' },
-          '100%': { backgroundPosition: '200% 50%' },
+        skeleton: {
+          '0%': { backgroundPosition: '-220% 0' },
+          '100%': { backgroundPosition: '220% 0' },
         },
       },
       animation: {
-        shimmer: 'shimmer 1.7s infinite',
-        gradientShift: 'gradientShift 8s linear infinite',
+        fadeUp: 'fadeUp 0.45s ease-out both',
+        skeleton: 'skeleton 1.6s ease-in-out infinite',
       },
     },
   },
   plugins: [],
 }
-

@@ -53,3 +53,4 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+.cache/

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,45 +6,126 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
+    --grain-opacity: 0.035;
   }
 
   * {
     @apply box-border;
   }
 
-  body {
-    @apply m-0 min-h-screen bg-app-gradient font-sans text-slate-100 antialiased;
+  html, body {
+    @apply m-0 min-h-screen text-ink antialiased;
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    background-color: #F5F1EA;
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(31, 58, 95, 0.04), transparent 40%),
+      radial-gradient(circle at 100% 100%, rgba(183, 71, 42, 0.04), transparent 45%);
+    font-feature-settings: 'ss01' on, 'cv11' on;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: var(--grain-opacity);
+    mix-blend-mode: multiply;
+  }
+
+  ::selection {
+    background-color: #1F3A5F;
+    color: #F5F1EA;
+  }
+
+  h1, h2, h3, h4 {
+    @apply tracking-editorial;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' on, 'lnum' on;
   }
 }
 
 @layer components {
-  .glass-card {
-    @apply rounded-3xl border border-white/15 bg-white/[0.06] shadow-card backdrop-blur-2xl;
+  .surface {
+    @apply rounded-md border border-ink-10 bg-paper-card;
   }
 
-  .gradient-title {
-    background: linear-gradient(110deg, #38bdf8 0%, #818cf8 35%, #c084fc 70%, #38bdf8 100%);
-    background-size: 220% auto;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: gradientShift 8s linear infinite;
+  .surface-soft {
+    @apply rounded-md border border-ink-10 bg-paper-soft;
+  }
+
+  .hairline {
+    @apply border-t border-ink-10;
+  }
+
+  .label {
+    @apply font-mono text-[10px] uppercase tracking-widelabel text-ink-60;
+  }
+
+  .label-strong {
+    @apply font-mono text-[10px] uppercase tracking-widelabel text-ink-80;
   }
 
   .input-field {
-    @apply h-12 rounded-xl border border-white/15 bg-slate-950/60 px-4 text-sm text-slate-100 placeholder:text-slate-400 outline-none transition duration-300 focus:border-cyan-300/60 focus:ring-2 focus:ring-cyan-400/20;
+    @apply h-11 w-full rounded-md border border-ink-10 bg-paper-card px-3 text-[15px] text-ink placeholder:text-ink-40 outline-none transition focus:border-navy focus:ring-2 focus:ring-navy/15;
+    appearance: none;
   }
 
-  .shimmer-card {
-    @apply relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.05];
+  .btn-primary {
+    @apply inline-flex h-11 items-center justify-center rounded-md bg-ink px-5 text-[14px] font-medium text-paper transition hover:bg-navy-deep focus:outline-none focus:ring-2 focus:ring-navy/30 focus:ring-offset-2 focus:ring-offset-paper disabled:opacity-50;
   }
 
-  .shimmer-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.15), transparent 80%);
-    animation: shimmer 1.8s infinite;
+  .btn-ghost {
+    @apply inline-flex h-9 items-center justify-center rounded-md border border-ink-10 bg-transparent px-3 text-[13px] font-medium text-ink-80 transition hover:border-ink-20 hover:bg-paper-soft;
+  }
+
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-ink-10 bg-paper-card px-2.5 py-1 font-mono text-[10px] uppercase tracking-widelabel text-ink-60;
+  }
+
+  .pill-moss {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-moss/30 bg-moss-mist px-2.5 py-1 font-mono text-[10px] uppercase tracking-widelabel text-moss;
+  }
+
+  .pill-clay {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-clay/30 bg-clay-mist px-2.5 py-1 font-mono text-[10px] uppercase tracking-widelabel text-clay;
+  }
+
+  .pill-navy {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-navy/25 bg-navy/5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widelabel text-navy;
+  }
+
+  .num-display {
+    font-family: 'Instrument Serif', ui-serif, Georgia, serif;
+    @apply tnum tracking-editorial;
+    font-feature-settings: 'lnum' on, 'tnum' on;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(229, 224, 213, 0.6) 0%,
+      rgba(229, 224, 213, 0.3) 40%,
+      rgba(229, 224, 213, 0.6) 80%
+    );
+    background-size: 220% 100%;
+    @apply animate-skeleton rounded-md;
+  }
+
+  .ruled {
+    background-image: linear-gradient(to bottom, rgba(21, 23, 26, 0.04) 1px, transparent 1px);
+    background-size: 100% 32px;
+  }
+
+  .ink-underline {
+    background-image: linear-gradient(to right, #1F3A5F 0%, #1F3A5F 100%);
+    background-repeat: no-repeat;
+    background-size: 100% 2px;
+    background-position: 0 100%;
   }
 }

@@ -1,0 +1,74 @@
+// Prisma schema for Ledger
+// Database: MongoDB (Atlas).
+// To regenerate the client: `npx prisma generate`
+// To push the schema to your DB: `npx prisma db push`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(auto()) @map("_id") @db.ObjectId
+  email           String           @unique
+  passwordHash    String
+  name            String?
+  homeCity        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  cards           Card[]
+  loyaltyPrograms LoyaltyProgram[]
+  trips           Trip[]
+}
+
+model Card {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  earnRateSpend  Float
+  earnRatePoints Float
+  pointValue     Float
+  // Current reward-points balance accumulated on this card. Treated as a
+  // wallet-flexible point pool by the optimizer so it actually redeems.
+  currentPoints  Float    @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model LoyaltyProgram {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  programType    String   // "flight" | "hotel" | "wallet"
+  points         Float
+  conversionRate Float
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Trip {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromCity      String
+  toCity        String
+  effectiveCost Float
+  savings       Float
+  pointsUsed    Float
+  resultJson    Json
+  createdAt     DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

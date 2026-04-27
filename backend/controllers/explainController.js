@@ -82,9 +82,35 @@ const DEMAND_MULTIPLIER = {
   mumbai: 1.2,
 };
 
+import { prisma } from '../lib/prisma.js';
+
 const RAG_SERVICE_URL = (process.env.RAG_SERVICE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 
 const SUPPORTED_CITY_SET = new Set(CITIES);
+
+// Hydrate { cards, loyalty_programs } payload from the authenticated user's stored profile.
+async function loadUserProfile(userId) {
+  const [cards, programs] = await Promise.all([
+    prisma.card.findMany({ where: { userId } }),
+    prisma.loyaltyProgram.findMany({ where: { userId } }),
+  ]);
+
+  return {
+    cards: cards.map((card) => ({
+      name: card.name,
+      earn_rate_spend: card.earnRateSpend,
+      earn_rate_points: card.earnRatePoints,
+      point_value: card.pointValue,
+      current_points: card.currentPoints ?? 0,
+    })),
+    loyalty_programs: programs.map((program) => ({
+      name: program.name,
+      points: program.points,
+      conversion_rate: program.conversionRate,
+      type: program.programType,
+    })),
+  };
+}
 
 function toNumber(value) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -332,38 +358,82 @@ function buildCards(rawCards, flightPrice) {
 
 export async function explainLoyalty(req, res) {
   try {
-    const { userData, trip } = req.body ?? {};
+    let { userData, trip } = req.body ?? {};
 
-    console.log('[optimizer] Incoming payload:', req.body);
+    req.log.debug({ body: req.body }, '[optimizer] incoming payload');
 
-    if (
-      !userData ||
-      !Array.isArray(userData.cards) ||
-      !Array.isArray(userData.loyalty_programs) ||
-      !trip ||
-      typeof trip.from !== 'string' ||
-      typeof trip.to !== 'string'
-    ) {
-      console.error('[optimizer] Invalid request body shape');
+    if (!trip || typeof trip.from !== 'string' || typeof trip.to !== 'string') {
+      req.log.warn('[optimizer] Invalid trip in request body');
       return res.status(400).json({
-        error:
-          'Invalid input. Expected { userData: { cards: [], loyalty_programs: [] }, trip: { from, to } }',
+        error: 'Invalid input. Expected { trip: { from, to } } (and optionally userData).',
       });
     }
+
+    // If the caller is authenticated and didn't ship userData, hydrate from their saved profile.
+    // We intentionally treat "userData provided but partial" (e.g. cards-only) as valid, so the
+    // hydration trigger is "no userData at all".
+    if (!userData && req.user) {
+      try {
+        userData = await loadUserProfile(req.user.id);
+        req.log.debug({ userId: req.user.id }, '[optimizer] loaded saved profile');
+      } catch (profileError) {
+        req.log.error({ err: profileError }, '[optimizer] failed to load saved profile');
+        return res.status(500).json({ error: 'Could not load your saved profile.' });
+      }
+    }
+
+    // Normalize: missing arrays default to [] so cards-only or programs-only payloads are valid.
+    if (!userData || typeof userData !== 'object') {
+      userData = {};
+    }
+    if (!Array.isArray(userData.cards)) userData.cards = [];
+    if (!Array.isArray(userData.loyalty_programs)) userData.loyalty_programs = [];
 
     const pricing = getTripPricing(trip.from, trip.to);
     const totalCost = round2(pricing.flightPrice + pricing.hotelPrice);
 
-    console.log('[optimizer] Pricing context:', pricing);
+    req.log.debug({ pricing }, '[optimizer] pricing context');
 
     const loyaltyPrograms = buildLoyaltyPrograms(userData.loyalty_programs);
     const cards = buildCards(userData.cards, pricing.flightPrice);
 
-    if (loyaltyPrograms.length === 0) {
-      console.error('[optimizer] No valid loyalty programs found in input');
-      return res.status(400).json({
-        error: 'No valid loyalty programs. Provide points and conversion_rate values above zero.',
-      });
+    // Promote each card's accumulated reward balance into a wallet-flexible
+    // loyalty pool so it actually redeems against the trip. Card-issuer points
+    // are typically convertible to travel credits, so wallet treatment is the
+    // safe default.
+    const cardBalancePrograms = (userData.cards || [])
+      .map((rawCard, index) => {
+        const balance = toNumber(rawCard.current_points ?? rawCard.currentPoints ?? 0);
+        const value = toNumber(rawCard.point_value ?? rawCard.pointValue ?? 0);
+        if (!Number.isFinite(balance) || balance <= 0 || !Number.isFinite(value) || value <= 0) {
+          return null;
+        }
+        const cardName = rawCard.name || rawCard.card_name || `Card ${index + 1}`;
+        return {
+          name: `${cardName} balance`,
+          points: balance,
+          conversionRate: value,
+          remainingPoints: balance,
+          pointsValue: round2(balance * value),
+          programType: 'wallet',
+        };
+      })
+      .filter(Boolean);
+
+    if (cardBalancePrograms.length > 0) {
+      loyaltyPrograms.push(...cardBalancePrograms);
+    }
+
+    // Capture profile-shape notes so the UI can surface "you have no programs yet" gracefully.
+    const profileNotes = [];
+    if (loyaltyPrograms.length === 0 && cards.length === 0) {
+      profileNotes.push(
+        'No loyalty programs or cards on file — showing the cash baseline. Add a card or program to start saving.',
+      );
+    } else if (loyaltyPrograms.length === 0) {
+      profileNotes.push('No loyalty programs on file — only card rewards apply on this trip.');
+    } else if (cards.length === 0) {
+      profileNotes.push('No cards on file — only point redemption applies; remaining balance is paid in cash.');
     }
 
     const sortedPrograms = [...loyaltyPrograms].sort((a, b) => b.conversionRate - a.conversionRate);
@@ -544,7 +614,7 @@ export async function explainLoyalty(req, res) {
         programTypes,
       };
 
-      console.log('[optimizer] Sending plan to RAG:', ragPayload);
+      req.log.debug({ ragPayload }, '[optimizer] sending plan to RAG');
       const ragResponse = await fetch(`${RAG_SERVICE_URL}/explain`, {
         method: 'POST',
         headers: {
@@ -560,10 +630,10 @@ export async function explainLoyalty(req, res) {
         }
       } else {
         const errorText = await ragResponse.text();
-        console.error('[optimizer] RAG service returned non-OK status:', ragResponse.status, errorText);
+        req.log.warn({ status: ragResponse.status, body: errorText }, '[optimizer] RAG service returned non-OK status');
       }
     } catch (ragError) {
-      console.error('[optimizer] Failed to enrich response with RAG explanation:', ragError);
+      req.log.warn({ err: ragError }, '[optimizer] failed to enrich response with RAG explanation');
     }
 
     const response = {
@@ -586,13 +656,37 @@ export async function explainLoyalty(req, res) {
       options,
       programTypes,
       explanation,
+      profileNotes,
+      profileSummary: {
+        cardCount: cards.length,
+        programCount: loyaltyPrograms.length,
+      },
     };
 
-    console.log('[optimizer] Response payload:', response);
+    req.log.debug({ response }, '[optimizer] response payload');
+
+    // Persist trip history for authenticated users (best-effort; never block the response).
+    if (req.user) {
+      prisma.trip
+        .create({
+          data: {
+            userId: req.user.id,
+            fromCity: trip.from,
+            toCity: trip.to,
+            effectiveCost: response.effective_cost ?? 0,
+            savings: response.savings ?? 0,
+            pointsUsed: response.pointsUsed ?? 0,
+            resultJson: response,
+          },
+        })
+        .catch((tripErr) => {
+          req.log.error({ err: tripErr }, '[optimizer] failed to persist trip history');
+        });
+    }
 
     return res.status(200).json(response);
   } catch (error) {
-    console.error('[optimizer] Unexpected error:', error);
+    req.log.error({ err: error }, '[optimizer] unexpected error');
     return res.status(500).json({
       error: 'Internal server error while generating travel plan',
     });

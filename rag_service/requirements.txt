@@ -1,7 +1,9 @@
-fastapi
-uvicorn[standard]
-python-dotenv
-groq
-sentence-transformers
-faiss-cpu
-numpy
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-dotenv>=1.0
+groq>=0.9
+sentence-transformers>=2.7
+faiss-cpu>=1.8
+numpy>=1.26
+cachetools>=5.3
+tenacity>=8.2

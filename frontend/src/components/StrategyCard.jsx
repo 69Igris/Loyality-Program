@@ -1,72 +1,99 @@
 import React, { useEffect, useState } from 'react';
-import { animate, motion } from 'framer-motion';
 
 function formatCurrency(value) {
   const amount = Number(value);
-  if (!Number.isFinite(amount)) {
-    return '₹0';
-  }
-
-  return `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(amount)}`;
+  if (!Number.isFinite(amount)) return '₹0';
+  return `₹${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(amount)}`;
 }
 
-function StrategyCard({ summary, effectiveCost, savings }) {
-  const normalizedCost = Number(effectiveCost) || 0;
-  const normalizedSavings = Number(savings) || 0;
-  const [displaySavings, setDisplaySavings] = useState(0);
+function formatNumber(value) {
+  const amount = Number(value) || 0;
+  return new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(amount);
+}
 
+function useCountUp(target, duration = 900) {
+  const [value, setValue] = useState(0);
   useEffect(() => {
-    const controls = animate(0, normalizedSavings, {
-      duration: 1.15,
-      ease: 'easeOut',
-      onUpdate: (value) => setDisplaySavings(value),
-    });
+    const safeTarget = Number(target) || 0;
+    if (safeTarget === 0) {
+      setValue(0);
+      return;
+    }
+    let raf;
+    const start = performance.now();
+    const step = (now) => {
+      const elapsed = now - start;
+      const t = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(safeTarget * eased);
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+}
 
-    return () => controls.stop();
-  }, [normalizedSavings]);
+function Stat({ label, value, accent }) {
+  return (
+    <div className="flex flex-col gap-1.5 px-6 py-5 first:pl-0 last:pr-0 sm:py-6">
+      <p className="label">{label}</p>
+      <p className={`num-display text-[34px] leading-none sm:text-[40px] ${
+        accent === 'moss' ? 'text-moss' : accent === 'clay' ? 'text-clay' : 'text-ink'
+      }`}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function StrategyCard({ summary, effectiveCost, savings, pointsUsed, remainingCash }) {
+  const animatedSavings = useCountUp(savings || 0);
+  const animatedCost = useCountUp(effectiveCost || 0);
 
   return (
-    <motion.section
-      whileHover={{ y: -3 }}
-      transition={{ type: 'spring', stiffness: 190, damping: 18 }}
-      className="relative overflow-hidden rounded-3xl"
-    >
-      <div className="pointer-events-none absolute -inset-px rounded-3xl bg-gradient-to-r from-cyan-400/40 via-indigo-400/35 to-fuchsia-400/35 blur-lg" />
-
-      <div className="glass-card relative p-6 sm:p-8">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.22em] text-slate-400">Best Strategy</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-100 sm:text-3xl">{summary}</h2>
-          </div>
-          <span className="inline-flex h-fit items-center rounded-full border border-orange-300/40 bg-orange-400/15 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-orange-100">
-            🔥 Optimal Choice
+    <section className="surface overflow-hidden">
+      {/* Header strip */}
+      <div className="flex items-center justify-between gap-4 border-b border-ink-10 bg-paper-soft/50 px-6 py-4 sm:px-7">
+        <div className="flex items-center gap-3">
+          <span className="pill-moss">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor">
+              <circle cx="4.5" cy="4.5" r="4.5" />
+            </svg>
+            Recommended
           </span>
+          <p className="text-[12.5px] text-ink-60">{summary}</p>
         </div>
-
-        <div className="mt-7 grid gap-4 sm:grid-cols-2">
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.12 }}
-            className="rounded-2xl border border-white/15 bg-slate-900/50 p-5"
-          >
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Effective Cost</p>
-            <p className="mt-2 text-4xl font-black text-slate-100">{formatCurrency(normalizedCost)}</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 p-5"
-          >
-            <p className="text-xs uppercase tracking-[0.2em] text-emerald-200/90">Savings</p>
-            <p className="mt-2 text-4xl font-black text-emerald-300">{formatCurrency(displaySavings)}</p>
-          </motion.div>
-        </div>
+        <p className="hidden font-mono text-[10.5px] uppercase tracking-widelabel text-ink-40 sm:block">
+          Strategy 01 of {1}
+        </p>
       </div>
-    </motion.section>
+
+      {/* Body */}
+      <div className="grid grid-cols-1 divide-y divide-ink-10 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+        <div className="px-6 py-6 sm:col-span-2 sm:py-8">
+          <p className="label">Effective cost</p>
+          <p className="mt-2 num-display text-[56px] leading-[1] text-ink sm:text-[68px]">
+            {formatCurrency(animatedCost)}
+          </p>
+          <p className="mt-3 text-[13px] text-ink-60">
+            After bounded redemption and best-card top-up.
+          </p>
+        </div>
+
+        <Stat label="Savings vs cash" value={formatCurrency(animatedSavings)} accent="moss" />
+        <Stat
+          label="Points spent"
+          value={formatNumber(pointsUsed)}
+        />
+      </div>
+
+      {/* Footer meta */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-10 px-6 py-4 text-[12px] text-ink-60 sm:px-7">
+        <span>Remaining cash leg: <span className="tnum text-ink">{formatCurrency(remainingCash)}</span></span>
+        <span className="font-mono uppercase tracking-widelabel text-ink-40">Computed live · server</span>
+      </div>
+    </section>
   );
 }
 
