@@ -1,6 +1,8 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import UploadCard from '../components/UploadCard';
+import MorphingWord from '../components/MorphingWord';
 import { useAuth } from '../contexts/AuthContext';
 
 const SUPPORTED_PROGRAMS = [
@@ -14,13 +16,20 @@ const SUPPORTED_PROGRAMS = [
   { name: 'HDFC SmartBuy', kind: 'Wallet' },
 ];
 
-function BenefitTile({ title, body, accent = 'navy' }) {
+function BenefitTile({ title, body, accent = 'navy', index = 0 }) {
   const accentBg =
     accent === 'moss' ? 'bg-moss-mist text-moss' :
     accent === 'clay' ? 'bg-clay-mist text-clay' :
     'bg-navy/5 text-navy';
   return (
-    <div className="surface flex h-full flex-col p-6">
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.4 }}
+      transition={{ duration: 0.45, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -3 }}
+      className="surface flex h-full flex-col p-6 transition-shadow hover:shadow-page"
+    >
       <span className={`inline-flex h-8 w-8 items-center justify-center rounded-md ${accentBg}`}>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M3 8.5l3 3 6.5-7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -28,7 +37,7 @@ function BenefitTile({ title, body, accent = 'navy' }) {
       </span>
       <h3 className="mt-4 font-serif text-[20px] leading-tight text-ink">{title}</h3>
       <p className="mt-2 text-[13.5px] leading-relaxed text-ink-60">{body}</p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -47,7 +56,11 @@ function SearchPage() {
 
           <h1 className="font-serif text-[44px] leading-[1.04] tracking-editorial text-ink sm:text-[64px]">
             Stop guessing how to spend{' '}
-            <em className="italic text-clay">your points.</em>
+            your{' '}
+            <MorphingWord
+              words={['points.', 'miles.', 'wallet.', 'rewards.']}
+              emphasisClassName="text-clay italic"
+            />
             <br />
             Start{' '}
             <span className="ink-underline">accounting</span> for them.
@@ -112,40 +125,45 @@ function SearchPage() {
 
       <hr className="border-ink-10" />
 
-      {/* Form + benefits */}
-      <section className="grid grid-cols-12 gap-x-8 gap-y-10 py-14">
-        <div className="col-span-12 lg:col-span-7">
+      {/* Form + benefits — column heights stretch on lg so the bottom edges align */}
+      <section className="grid grid-cols-12 items-stretch gap-x-8 gap-y-10 py-14">
+        <div className="col-span-12 lg:col-span-7 lg:h-full">
           <UploadCard />
         </div>
 
-        <div className="col-span-12 lg:col-span-5">
-          <p className="label mb-4">What you get</p>
-          <h2 className="font-serif text-[28px] leading-[1.15] text-ink sm:text-[32px]">
+        <aside className="col-span-12 flex flex-col lg:col-span-5 lg:pt-8">
+          {/* Header: same size + mt rhythm as the form's heading so they sit on the same baseline */}
+          <p className="label">What you get</p>
+          <h2 className="mt-1 font-serif text-[26px] leading-tight tracking-editorial text-ink sm:text-[28px]">
             One number. <em className="italic text-ink-60">Your real cost.</em>
           </h2>
-          <p className="mt-4 text-[14.5px] leading-relaxed text-ink-60">
+          <p className="mt-3 text-[14px] leading-relaxed text-ink-60">
             Skip spreadsheets. We cross-check your wallet against the trip and
             return a single recommended strategy with the exact split between
             points and cash.
           </p>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <BenefitTile
+              index={0}
               title="Save your wallet"
               body="Cards and loyalty programs in one place. Sync once, optimize forever."
               accent="navy"
             />
             <BenefitTile
+              index={1}
               title="See real savings"
               body="Every recommendation comes with a clear ₹-amount you'd save versus paying cash."
               accent="moss"
             />
             <BenefitTile
+              index={2}
               title="Trip history"
               body="Every plan you generate is saved. Revisit, compare, share."
               accent="clay"
             />
             <BenefitTile
+              index={3}
               title="No guesswork"
               body="A clear recommendation, not a bewildering matrix of options."
               accent="navy"
@@ -153,7 +171,8 @@ function SearchPage() {
           </div>
 
           {!isAuthenticated && (
-            <div className="mt-6 flex items-center justify-between gap-4 rounded-md border border-ink-10 bg-paper-soft/40 px-4 py-3">
+            // mt-auto pins this to the bottom on desktop so it lines up with the form's bottom border
+            <div className="mt-6 flex items-center justify-between gap-4 rounded-md border border-ink-10 bg-paper-soft/40 px-4 py-3 lg:mt-auto">
               <p className="text-[13px] text-ink-80">
                 Want it across devices?{' '}
                 <Link to="/signup" className="font-medium text-ink underline decoration-ink-20 underline-offset-4 hover:decoration-ink">
@@ -163,7 +182,7 @@ function SearchPage() {
               </p>
             </div>
           )}
-        </div>
+        </aside>
       </section>
     </div>
   );

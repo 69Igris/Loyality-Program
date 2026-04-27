@@ -1,6 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { trips as tripsApi } from '../services/api';
+
+function useCountUp(target, duration = 900) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    const safe = Number(target) || 0;
+    if (safe === 0) { setValue(0); return undefined; }
+    let raf;
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(safe * eased);
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return value;
+}
 
 function formatCurrency(value, fractionDigits = 0) {
   const n = Number(value);
@@ -22,16 +42,23 @@ function formatDate(value) {
   }
 }
 
-function StatBlock({ label, value, accent }) {
+function StatBlock({ label, numericValue, format, fallback = '—', accent, index = 0 }) {
+  const animated = useCountUp(numericValue || 0);
+  const display = numericValue == null ? fallback : format(animated);
   return (
-    <div className="surface px-5 py-5">
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.08, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="surface px-5 py-5 transition-shadow hover:shadow-page"
+    >
       <p className="label">{label}</p>
       <p className={`mt-2 num-display text-[28px] leading-none sm:text-[32px] ${
         accent === 'moss' ? 'text-moss' : accent === 'clay' ? 'text-clay' : 'text-ink'
       }`}>
-        {value}
+        {display}
       </p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -104,9 +131,26 @@ export default function TripHistoryPage() {
 
       {/* Stats strip */}
       <section className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatBlock label="Trips run" value={stats ? formatPoints(stats.count) : '—'} />
-        <StatBlock label="Lifetime savings" value={stats ? formatCurrency(stats.totalSavings) : '—'} accent="moss" />
-        <StatBlock label="Points spent" value={stats ? formatPoints(stats.totalPointsUsed) : '—'} accent="clay" />
+        <StatBlock
+          index={0}
+          label="Trips run"
+          numericValue={stats?.count}
+          format={(v) => formatPoints(v)}
+        />
+        <StatBlock
+          index={1}
+          label="Lifetime savings"
+          numericValue={stats?.totalSavings}
+          format={(v) => formatCurrency(v)}
+          accent="moss"
+        />
+        <StatBlock
+          index={2}
+          label="Points spent"
+          numericValue={stats?.totalPointsUsed}
+          format={(v) => formatPoints(v)}
+          accent="clay"
+        />
       </section>
 
       {/* Toolbar */}
@@ -179,8 +223,14 @@ export default function TripHistoryPage() {
                 </td>
               </tr>
             )}
-            {sorted.map((trip) => (
-              <tr key={trip.id} className="border-b border-ink-10 last:border-b-0 hover:bg-paper-soft/40">
+            {sorted.map((trip, rowIdx) => (
+              <motion.tr
+                key={trip.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(rowIdx * 0.04, 0.4), duration: 0.3 }}
+                className="border-b border-ink-10 last:border-b-0 hover:bg-paper-soft/40"
+              >
                 <td className="px-4 py-3">
                   <Link to={`/trips/${trip.id}`} className="group inline-flex items-center gap-2 text-[14px] text-ink">
                     <span className="font-serif text-[16px]">{trip.fromCity}</span>
@@ -203,7 +253,7 @@ export default function TripHistoryPage() {
                     Delete
                   </button>
                 </td>
-              </tr>
+              </motion.tr>
             ))}
           </tbody>
         </table>

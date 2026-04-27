@@ -81,11 +81,13 @@ function StrategyCard({ summary, effectiveCost, savings, pointsUsed, remainingCa
           </p>
         </div>
 
-        <Stat label="Savings vs cash" value={formatCurrency(animatedSavings)} accent="moss" />
-        <Stat
-          label="Points spent"
-          value={formatNumber(pointsUsed)}
-        />
+        <div className="flex flex-col gap-1.5 px-6 py-5 first:pl-0 last:pr-0 sm:py-6">
+          <p className="label">Savings vs cash</p>
+          <p className="num-display text-[34px] leading-none sm:text-[40px] text-moss shine-once">
+            {formatCurrency(animatedSavings)}
+          </p>
+        </div>
+        <Stat label="Points spent" value={formatNumber(pointsUsed)} />
       </div>
 
       {/* Footer meta */}

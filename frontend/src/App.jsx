@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link, NavLink, Route, Routes } from 'react-router-dom';
+import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
 import SearchPage from './pages/SearchPage';
 import ResultsPage from './pages/ResultsPage';
 import LoginPage from './pages/LoginPage';
@@ -9,6 +10,8 @@ import TripHistoryPage from './pages/TripHistoryPage';
 import TripDetailPage from './pages/TripDetailPage';
 import RequireAuth from './components/RequireAuth';
 import UserMenu from './components/UserMenu';
+import PageTransition from './components/PageTransition';
+import ProgramMarquee from './components/ProgramMarquee';
 
 function Mark() {
   return (
@@ -50,6 +53,7 @@ function NavItem({ to, children }) {
 }
 
 function App() {
+  const location = useLocation();
   return (
     <div className="relative z-10 min-h-screen">
       <header className="sticky top-0 z-30 border-b border-ink-10 bg-paper/85 backdrop-blur-sm">
@@ -72,37 +76,41 @@ function App() {
         </div>
       </header>
 
+      <ProgramMarquee />
+
       <main className="relative">
-        <Routes>
-          <Route path="/" element={<SearchPage />} />
-          <Route path="/results" element={<ResultsPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route
-            path="/account"
-            element={(
-              <RequireAuth>
-                <AccountPage />
-              </RequireAuth>
-            )}
-          />
-          <Route
-            path="/trips"
-            element={(
-              <RequireAuth>
-                <TripHistoryPage />
-              </RequireAuth>
-            )}
-          />
-          <Route
-            path="/trips/:id"
-            element={(
-              <RequireAuth>
-                <TripDetailPage />
-              </RequireAuth>
-            )}
-          />
-        </Routes>
+        <AnimatePresence mode="wait" initial={false}>
+          <Routes location={location} key={location.pathname}>
+            <Route path="/" element={<PageTransition><SearchPage /></PageTransition>} />
+            <Route path="/results" element={<PageTransition><ResultsPage /></PageTransition>} />
+            <Route path="/login" element={<PageTransition><LoginPage /></PageTransition>} />
+            <Route path="/signup" element={<PageTransition><SignupPage /></PageTransition>} />
+            <Route
+              path="/account"
+              element={(
+                <RequireAuth>
+                  <PageTransition><AccountPage /></PageTransition>
+                </RequireAuth>
+              )}
+            />
+            <Route
+              path="/trips"
+              element={(
+                <RequireAuth>
+                  <PageTransition><TripHistoryPage /></PageTransition>
+                </RequireAuth>
+              )}
+            />
+            <Route
+              path="/trips/:id"
+              element={(
+                <RequireAuth>
+                  <PageTransition><TripDetailPage /></PageTransition>
+                </RequireAuth>
+              )}
+            />
+          </Routes>
+        </AnimatePresence>
       </main>
 
       <footer className="mt-24 border-t border-ink-10 bg-paper-soft/40">

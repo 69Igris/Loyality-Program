@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import MagneticButton from './MagneticButton';
 
 const CITIES = ['Delhi', 'Mumbai', 'Bangalore', 'Goa', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune'];
 
@@ -150,7 +151,7 @@ function UploadCard() {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="surface p-7 shadow-page sm:p-8">
+    <form onSubmit={handleSubmit} className="surface flex h-full flex-col p-7 shadow-page sm:p-8">
       <div className="flex items-baseline justify-between">
         <div>
           <p className="label">Form 01</p>
@@ -168,18 +169,20 @@ function UploadCard() {
       <div className="mt-7">
         <p className="label-strong mb-3">Itinerary</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
-          <div className="relative">
+          <div>
             <FieldLabel htmlFor="from">From</FieldLabel>
-            <select
-              id="from"
-              className="input-field pr-9"
-              value={trip.from}
-              onChange={(e) => setTrip((prev) => ({ ...prev, from: e.target.value }))}
-            >
-              <option value="" disabled>Select origin</option>
-              {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <div className="relative"><ChevronDown /></div>
+            <div className="relative">
+              <select
+                id="from"
+                className="input-field pr-9"
+                value={trip.from}
+                onChange={(e) => setTrip((prev) => ({ ...prev, from: e.target.value }))}
+              >
+                <option value="" disabled>Select origin</option>
+                {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <ChevronDown />
+            </div>
           </div>
 
           <div className="hidden h-11 items-center justify-center text-ink-40 sm:flex">
@@ -188,18 +191,20 @@ function UploadCard() {
             </svg>
           </div>
 
-          <div className="relative">
+          <div>
             <FieldLabel htmlFor="to">To</FieldLabel>
-            <select
-              id="to"
-              className="input-field pr-9"
-              value={trip.to}
-              onChange={(e) => setTrip((prev) => ({ ...prev, to: e.target.value }))}
-            >
-              <option value="" disabled>Select destination</option>
-              {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <div className="relative"><ChevronDown /></div>
+            <div className="relative">
+              <select
+                id="to"
+                className="input-field pr-9"
+                value={trip.to}
+                onChange={(e) => setTrip((prev) => ({ ...prev, to: e.target.value }))}
+              >
+                <option value="" disabled>Select destination</option>
+                {CITIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <ChevronDown />
+            </div>
           </div>
         </div>
       </div>
@@ -328,17 +333,17 @@ function UploadCard() {
         </p>
       )}
 
-      <div className="mt-8 flex items-center justify-between gap-4 border-t border-ink-10 pt-6">
+      <div className="mt-8 flex items-center justify-between gap-4 border-t border-ink-10 pt-6 lg:mt-auto">
         <p className="text-[12px] text-ink-60">
           Press <kbd className="rounded border border-ink-10 bg-paper-soft px-1.5 py-0.5 font-mono text-[11px] text-ink">⏎</kbd>{' '}
           or click run to compute.
         </p>
-        <button type="submit" className="btn-primary">
+        <MagneticButton type="submit" className="btn-primary">
           Compute strategy
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="ml-2">
             <path d="M3 7h8M11 7l-3-3M11 7l-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-        </button>
+        </MagneticButton>
       </div>
     </form>
   );
