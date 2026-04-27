@@ -22,8 +22,7 @@ function useCountUp(target, duration = 900) {
     let raf;
     const start = performance.now();
     const step = (now) => {
-      const elapsed = now - start;
-      const t = Math.min(1, elapsed / duration);
+      const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);
       setValue(safeTarget * eased);
       if (t < 1) raf = requestAnimationFrame(step);
@@ -34,68 +33,112 @@ function useCountUp(target, duration = 900) {
   return value;
 }
 
-function Stat({ label, value, accent }) {
+function MicroLabel({ children, tone = 'ink' }) {
+  const color = tone === 'brass' ? 'text-brass' : tone === 'paper' ? 'text-paper/70' : 'text-ink-60';
   return (
-    <div className="flex flex-col gap-1.5 px-6 py-5 first:pl-0 last:pr-0 sm:py-6">
-      <p className="label">{label}</p>
-      <p className={`num-display text-[34px] leading-none sm:text-[40px] ${
-        accent === 'moss' ? 'text-moss' : accent === 'clay' ? 'text-clay' : 'text-ink'
-      }`}>
-        {value}
-      </p>
-    </div>
+    <p className={`font-mono text-[9.5px] uppercase tracking-widelabel ${color}`}>{children}</p>
   );
+}
+
+function parseRoute(summary) {
+  if (typeof summary !== 'string') return [null, null];
+  const m = summary.match(/for\s+(.+?)\s*[→to]+\s*(.+)$/i);
+  if (m) return [m[1].trim(), m[2].trim()];
+  return [null, null];
+}
+
+function airportish(city) {
+  if (!city) return '—';
+  return city.slice(0, 3).toUpperCase();
 }
 
 function StrategyCard({ summary, effectiveCost, savings, pointsUsed, remainingCash }) {
   const animatedSavings = useCountUp(savings || 0);
   const animatedCost = useCountUp(effectiveCost || 0);
+  const [from, to] = parseRoute(summary);
 
   return (
-    <section className="surface overflow-hidden">
-      {/* Header strip */}
-      <div className="flex items-center justify-between gap-4 border-b border-ink-10 bg-paper-soft/50 px-6 py-4 sm:px-7">
-        <div className="flex items-center gap-3">
-          <span className="pill-moss">
-            <svg width="9" height="9" viewBox="0 0 9 9" fill="currentColor">
-              <circle cx="4.5" cy="4.5" r="4.5" />
-            </svg>
+    <article className="surface relative overflow-hidden">
+      {/* Top brass strip — subtle luxury accent */}
+      <div className="h-[3px] w-full bg-brass" />
+
+      {/* Header */}
+      <header className="flex items-center justify-between border-b border-ink-10 px-6 py-3 sm:px-7">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-moss/30 bg-moss-mist px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-widelabel text-moss">
+            <span className="h-1 w-1 rounded-full bg-moss" />
             Recommended
           </span>
-          <p className="text-[12.5px] text-ink-60">{summary}</p>
+          <p className="font-mono text-[10px] uppercase tracking-widelabel text-ink-60">
+            Strategy 01
+          </p>
         </div>
-        <p className="hidden font-mono text-[10.5px] uppercase tracking-widelabel text-ink-40 sm:block">
-          Strategy 01 of {1}
+        <p className="hidden font-mono text-[10px] uppercase tracking-widelabel text-ink-40 sm:block">
+          Computed live
         </p>
+      </header>
+
+      {/* Route — refined, smaller */}
+      <div className="px-6 pt-7 sm:px-8">
+        <MicroLabel tone="brass">Itinerary</MicroLabel>
+        <div className="mt-2 flex items-end justify-between gap-6">
+          <div>
+            <p className="font-serif text-[36px] leading-[0.9] tracking-editorial text-ink sm:text-[44px]">
+              {airportish(from)}
+            </p>
+            <p className="mt-1.5 text-[12.5px] text-ink-60">{from || '—'}</p>
+          </div>
+
+          <div className="hidden flex-1 items-center pb-3 sm:flex">
+            <span className="h-px flex-1 border-t border-dashed border-ink-20" />
+            <svg width="14" height="14" viewBox="0 0 22 22" className="mx-2.5 text-brass" aria-hidden="true">
+              <path d="M3 14 L 18 10 L 16 5 L 19 4 L 21 9 L 20 14 L 5 18 Z" fill="currentColor" />
+            </svg>
+            <span className="h-px flex-1 border-t border-dashed border-ink-20" />
+          </div>
+
+          <div className="text-right">
+            <p className="font-serif text-[36px] leading-[0.9] tracking-editorial text-ink sm:text-[44px]">
+              {airportish(to)}
+            </p>
+            <p className="mt-1.5 text-[12.5px] text-ink-60">{to || '—'}</p>
+          </div>
+        </div>
       </div>
 
-      {/* Body */}
-      <div className="grid grid-cols-1 divide-y divide-ink-10 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
-        <div className="px-6 py-6 sm:col-span-2 sm:py-8">
-          <p className="label">Effective cost</p>
-          <p className="mt-2 num-display text-[56px] leading-[1] text-ink sm:text-[68px]">
+      {/* Numbers — tighter, smaller display type */}
+      <div className="mt-7 grid grid-cols-1 divide-y divide-ink-10 px-6 pb-5 sm:grid-cols-3 sm:divide-x sm:divide-y-0 sm:px-8">
+        <div className="py-3 sm:py-2 sm:pl-0 sm:pr-6">
+          <MicroLabel>Effective cost</MicroLabel>
+          <p className="num-display mt-1 text-[24px] leading-none text-ink sm:text-[28px]">
             {formatCurrency(animatedCost)}
           </p>
-          <p className="mt-3 text-[13px] text-ink-60">
-            After bounded redemption and best-card top-up.
-          </p>
         </div>
-
-        <div className="flex flex-col gap-1.5 px-6 py-5 first:pl-0 last:pr-0 sm:py-6">
-          <p className="label">Savings vs cash</p>
-          <p className="num-display text-[34px] leading-none sm:text-[40px] text-moss shine-once">
+        <div className="py-3 sm:px-6 sm:py-2">
+          <MicroLabel>Savings vs cash</MicroLabel>
+          <p className="num-display shine-once mt-1 text-[24px] leading-none text-moss sm:text-[28px]">
             {formatCurrency(animatedSavings)}
           </p>
         </div>
-        <Stat label="Points spent" value={formatNumber(pointsUsed)} />
+        <div className="py-3 sm:py-2 sm:pl-6 sm:pr-0">
+          <MicroLabel>Points spent</MicroLabel>
+          <p className="num-display mt-1 text-[24px] leading-none text-ink sm:text-[28px]">
+            {formatNumber(pointsUsed)}
+          </p>
+        </div>
       </div>
 
-      {/* Footer meta */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-10 px-6 py-4 text-[12px] text-ink-60 sm:px-7">
-        <span>Remaining cash leg: <span className="tnum text-ink">{formatCurrency(remainingCash)}</span></span>
-        <span className="font-mono uppercase tracking-widelabel text-ink-40">Computed live · server</span>
-      </div>
-    </section>
+      {/* Footer */}
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-10 bg-paper-soft/40 px-6 py-3 text-[11.5px] text-ink-60 sm:px-8">
+        <span>
+          Remaining cash leg:{' '}
+          <span className="font-mono tabular-nums text-ink">{formatCurrency(remainingCash)}</span>
+        </span>
+        <span className="font-mono uppercase tracking-widelabel text-ink-40">
+          v0.7 · Ledger
+        </span>
+      </footer>
+    </article>
   );
 }
 

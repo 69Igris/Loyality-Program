@@ -84,7 +84,7 @@ export default function UserMenu() {
               Trip history
             </Link>
             <Link
-              to="/"
+              to="/app"
               onClick={() => setOpen(false)}
               className="block px-4 py-2 text-[13px] text-ink hover:bg-paper-soft"
             >

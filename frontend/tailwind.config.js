@@ -41,6 +41,12 @@ export default {
           DEFAULT: '#C28A2C',
           mist: '#F1E3C2',
         },
+        brass: {
+          DEFAULT: '#A88B5F',
+          deep: '#8A7048',
+          soft: '#C4A881',
+          mist: '#EFE7D7',
+        },
       },
       letterSpacing: {
         editorial: '-0.02em',

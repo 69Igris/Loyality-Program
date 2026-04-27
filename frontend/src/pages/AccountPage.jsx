@@ -429,7 +429,7 @@ export default function AccountPage() {
             </div>
             {recentTrips.length === 0 ? (
               <p className="px-5 py-8 text-center text-[13px] text-ink-60">
-                No trips yet. <Link to="/" className="underline decoration-ink-20 underline-offset-4 hover:decoration-ink">Run your first optimization →</Link>
+                No trips yet. <Link to="/app" className="underline decoration-ink-20 underline-offset-4 hover:decoration-ink">Run your first optimization →</Link>
               </p>
             ) : (
               <ul className="divide-y divide-ink-10">

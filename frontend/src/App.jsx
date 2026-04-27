@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import SearchPage from './pages/SearchPage';
+import LandingPage from './pages/LandingPage';
+import OptimizePage from './pages/OptimizePage';
 import ResultsPage from './pages/ResultsPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -11,7 +12,7 @@ import TripDetailPage from './pages/TripDetailPage';
 import RequireAuth from './components/RequireAuth';
 import UserMenu from './components/UserMenu';
 import PageTransition from './components/PageTransition';
-import ProgramMarquee from './components/ProgramMarquee';
+import { useAuth } from './contexts/AuthContext';
 
 function Mark() {
   return (
@@ -19,13 +20,10 @@ function Mark() {
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
         <rect x="0.5" y="0.5" width="21" height="21" rx="3.5" stroke="#15171A" />
         <path d="M5 16 L11 5 L17 16" stroke="#15171A" strokeWidth="1.4" strokeLinejoin="round" fill="none" />
-        <line x1="7.5" y1="12" x2="14.5" y2="12" stroke="#B7472A" strokeWidth="1.4" />
+        <line x1="7.5" y1="12" x2="14.5" y2="12" stroke="#A88B5F" strokeWidth="1.4" />
       </svg>
       <span className="font-serif text-[20px] leading-none tracking-editorial text-ink">
         Ledger
-      </span>
-      <span className="hidden text-[11px] font-medium uppercase tracking-widelabel text-ink-40 sm:inline">
-        / travel
       </span>
     </Link>
   );
@@ -54,35 +52,48 @@ function NavItem({ to, children }) {
 
 function App() {
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
+
   return (
     <div className="relative z-10 min-h-screen">
       <header className="sticky top-0 z-30 border-b border-ink-10 bg-paper/85 backdrop-blur-sm">
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-6 px-6 py-4 lg:px-10">
           <Mark />
 
-          <nav className="hidden items-center gap-7 md:flex">
-            <NavItem to="/">Optimize</NavItem>
-            <NavItem to="/trips">Trips</NavItem>
-            <NavItem to="/account">Account</NavItem>
-          </nav>
+          {isAuthenticated && (
+            <nav className="hidden items-center gap-7 md:flex">
+              <NavItem to="/app">Optimize</NavItem>
+              <NavItem to="/trips">Trips</NavItem>
+              <NavItem to="/account">Account</NavItem>
+            </nav>
+          )}
 
           <div className="flex items-center gap-3">
-            <span className="hidden items-center gap-2 font-mono text-[10px] uppercase tracking-widelabel text-ink-60 sm:inline-flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-moss" />
-              Live · v0.6
-            </span>
             <UserMenu />
           </div>
         </div>
       </header>
 
-      <ProgramMarquee />
-
       <main className="relative">
         <AnimatePresence mode="wait" initial={false}>
           <Routes location={location} key={location.pathname}>
-            <Route path="/" element={<PageTransition><SearchPage /></PageTransition>} />
-            <Route path="/results" element={<PageTransition><ResultsPage /></PageTransition>} />
+            <Route path="/" element={<PageTransition><LandingPage /></PageTransition>} />
+            <Route
+              path="/app"
+              element={(
+                <RequireAuth>
+                  <PageTransition><OptimizePage /></PageTransition>
+                </RequireAuth>
+              )}
+            />
+            <Route
+              path="/results"
+              element={(
+                <RequireAuth>
+                  <PageTransition><ResultsPage /></PageTransition>
+                </RequireAuth>
+              )}
+            />
             <Route path="/login" element={<PageTransition><LoginPage /></PageTransition>} />
             <Route path="/signup" element={<PageTransition><SignupPage /></PageTransition>} />
             <Route
@@ -118,7 +129,7 @@ function App() {
           <div className="flex items-center gap-3">
             <span className="font-mono uppercase tracking-widelabel">Ledger</span>
             <span className="text-ink-20">·</span>
-            <span>An optimizer for points, miles and cards.</span>
+            <span>A precise optimizer for points, miles and cards.</span>
           </div>
           <div className="flex items-center gap-5">
             <a href="#" onClick={(e) => e.preventDefault()} className="hover:text-ink">Privacy</a>

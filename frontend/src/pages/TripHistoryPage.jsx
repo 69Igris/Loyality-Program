@@ -121,7 +121,7 @@ export default function TripHistoryPage() {
             Every optimization you've run, kept for reference.
           </p>
         </div>
-        <Link to="/" className="btn-primary">
+        <Link to="/app" className="btn-primary">
           New optimization
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="ml-2">
             <path d="M3 7h8M11 7l-3-3M11 7l-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -218,7 +218,7 @@ export default function TripHistoryPage() {
                   <p className="font-serif text-[18px] italic text-ink-60">No trips yet.</p>
                   <p className="mt-2 text-[13px] text-ink-60">
                     Run your first optimization on the{' '}
-                    <Link to="/" className="underline decoration-ink-20 underline-offset-4 hover:decoration-ink">home page</Link>.
+                    <Link to="/app" className="underline decoration-ink-20 underline-offset-4 hover:decoration-ink">optimizer</Link>.
                   </p>
                 </td>
               </tr>
