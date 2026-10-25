@@ -15,6 +15,7 @@ import json
 import logging
 import os
 import re
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, cast
@@ -28,7 +29,6 @@ from groq import Groq
 from pydantic import BaseModel, Field
 
 from knowledge import all_documents
-from sentence_transformers import SentenceTransformer
 from tenacity import (
     RetryError,
     retry,
@@ -51,7 +51,7 @@ logging.basicConfig(
 )
 log = logging.getLogger("rag")
 
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
 CACHE_TTL_SECONDS = int(os.getenv("LLM_CACHE_TTL", "3600"))
 CACHE_MAX_ENTRIES = int(os.getenv("LLM_CACHE_MAX", "512"))
@@ -165,6 +165,24 @@ def _build_index(embedder: Any, docs: list[dict[str, Any]]) -> Any:
     return index
 
 
+class _FastEmbedder:
+    """Lightweight ONNX embedder (fastembed) exposing the small slice of the
+    SentenceTransformer API we use. Avoids pulling in torch (~2 GB + CUDA libs),
+    which is too heavy for small instances and stalls startup."""
+
+    def __init__(self, model_name: str):
+        from fastembed import TextEmbedding
+
+        self._model = TextEmbedding(model_name=model_name, cache_dir=str(CACHE_DIR / "models"))
+
+    def encode(self, texts, convert_to_numpy=True, normalize_embeddings=False):
+        vectors = np.asarray(list(self._model.embed(list(texts))), dtype=np.float32)
+        if normalize_embeddings:
+            norms = np.linalg.norm(vectors, axis=1, keepdims=True)
+            vectors = vectors / np.where(norms == 0, 1, norms)
+        return vectors
+
+
 def _initialize_retrieval() -> None:
     """Build (or load) the FAISS index. Persisted across restarts when possible."""
     if _state["index"] is not None and _state["embedder"] is not None:
@@ -176,7 +194,7 @@ def _initialize_retrieval() -> None:
     docs = _all_docs()
     sig = _signature_for(docs)
 
-    embedder = SentenceTransformer(EMBEDDING_MODEL)
+    embedder = _FastEmbedder(EMBEDDING_MODEL)
 
     # Try loading the persisted index if its signature matches the current corpus.
     if INDEX_PATH.exists() and META_PATH.exists():
@@ -214,8 +232,17 @@ def _initialize_llm_client() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    _initialize_retrieval()
     _initialize_llm_client()
+    # Load the embedder/index in the background so the server binds its port
+    # immediately (hosts like Render time out if no port opens). Routes return
+    # 503 until _state["ready"] flips; /health/live is always up.
+    def _warm() -> None:
+        try:
+            _initialize_retrieval()
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Retrieval initialization failed: %s", exc)
+
+    threading.Thread(target=_warm, name="rag-warmup", daemon=True).start()
     yield
 
 
