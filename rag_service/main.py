@@ -26,6 +26,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from groq import Groq
 from pydantic import BaseModel, Field
+
+from knowledge import all_documents
 from sentence_transformers import SentenceTransformer
 from tenacity import (
     RetryError,
@@ -58,40 +60,12 @@ CACHE_DIR = Path(os.getenv("RAG_CACHE_DIR", ".cache"))
 INDEX_PATH = CACHE_DIR / "faiss-index.bin"
 META_PATH = CACHE_DIR / "faiss-meta.json"
 
-# ---------------------------------------------------------------------------
-# Knowledge base
-# ---------------------------------------------------------------------------
-
-BASE_DOCS = [
-    "Airline points are used for flights only.",
-    "Hotel points are used for stays and accommodation only.",
-    "Wallet points can be used flexibly across both flights and hotels.",
-    "Airline points should never appear in a hotel redemption step.",
-    "Hotel points should never appear in a flight redemption step.",
-    "Card payments cover the remaining cash amount after point redemption.",
-    "Bounded redemption: points used = min(available, price / conversion).",
-    "Sequential allocation per program: flights consume points first, then hotels.",
-    "Best-card top-up: residual cash is paid on the highest reward-value card.",
-]
-
-LOYALTY_PROGRAM_DOCS = {
-    "air india": "Air India is a flight-type program; apply only to flights.",
-    "vistara": "Vistara is a flight-type program; use for airfare.",
-    "indigo": "IndiGo BluChip is a flight-type program for airfare.",
-    "marriott": "Marriott Bonvoy is a hotel-type program; use for stays.",
-    "hilton": "Hilton Honors is a hotel-type program for accommodation.",
-    "ihg": "IHG One Rewards is a hotel-type program.",
-    "airbnb": "Airbnb credits are hotel-type and must apply only to accommodation.",
-    "makemytrip": "MakeMyTrip credits are wallet-type and flexible across travel.",
-    "hdfc smartbuy": "HDFC SmartBuy is a wallet-type program for flexible travel spend.",
-}
-
-CARD_BENEFIT_DOCS = {
-    "hdfc regalia": "HDFC Regalia handles residual cash with strong reward earnings.",
-    "sbi prime": "SBI Prime card pays remaining amounts and earns reward points.",
-    "axis atlas": "Axis Atlas earns boosted miles on travel-coded transactions.",
-    "amex platinum travel": "Amex Platinum Travel offers travel vouchers and accelerated points on bookings.",
-}
+# Knowledge base lives in knowledge.py (ids, titles and sources for citation).
+# Bump INDEX_VERSION when the embedding procedure changes so stale persisted
+# indexes are rebuilt once.
+INDEX_VERSION = 2
+RETRIEVE_MIN_SCORE = float(os.getenv("RETRIEVE_MIN_SCORE", "0.35"))
+RETRIEVE_CACHE_TTL = int(os.getenv("RETRIEVE_CACHE_TTL", "600"))
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -123,6 +97,32 @@ class ExplainResponse(BaseModel):
     model: str = LLM_MODEL
 
 
+class RetrieveRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=500)
+    k: int = Field(default=4, ge=1, le=8)
+    programs: list[str] = Field(default_factory=list, max_length=5)
+    min_score: float = Field(default=RETRIEVE_MIN_SCORE, ge=0.0, le=1.0)
+
+
+class EvidenceItem(BaseModel):
+    id: str
+    title: str
+    text: str
+    source: str
+    type: str
+    score: float
+    program_key: str | None = None
+    program_type: str | None = None
+
+
+class RetrieveResponse(BaseModel):
+    evidence: list[EvidenceItem]
+    sufficient: bool
+    min_score: float
+    index_size: int
+    cached: bool = False
+
+
 # ---------------------------------------------------------------------------
 # Index + cache state
 # ---------------------------------------------------------------------------
@@ -140,21 +140,29 @@ _completion_cache: TTLCache[str, str] = TTLCache(
     maxsize=CACHE_MAX_ENTRIES, ttl=CACHE_TTL_SECONDS
 )
 
+# Retrieval results are policy passages (no user data), keyed by every request field.
+_retrieve_cache: TTLCache[str, dict[str, Any]] = TTLCache(maxsize=256, ttl=RETRIEVE_CACHE_TTL)
+
 
 def _all_docs() -> list[dict[str, Any]]:
-    items = [{"type": "base", "text": text} for text in BASE_DOCS]
-    items.extend(
-        {"type": "loyalty", "key": k, "text": v} for k, v in LOYALTY_PROGRAM_DOCS.items()
-    )
-    items.extend(
-        {"type": "card", "key": k, "text": v} for k, v in CARD_BENEFIT_DOCS.items()
-    )
-    return items
+    return all_documents()
 
 
 def _signature_for(docs: list[dict[str, Any]]) -> str:
-    payload = json.dumps([d["text"] for d in docs], sort_keys=True)
+    payload = json.dumps({"v": INDEX_VERSION, "texts": [d["text"] for d in docs]}, sort_keys=True)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _encode(embedder: Any, texts: list[str]) -> np.ndarray:
+    # Unit-length vectors make squared L2 distance map to cosine similarity.
+    return embedder.encode(texts, convert_to_numpy=True, normalize_embeddings=True).astype(np.float32)
+
+
+def _build_index(embedder: Any, docs: list[dict[str, Any]]) -> Any:
+    embeddings = _encode(embedder, [d["text"] for d in docs])
+    index = cast(Any, faiss.IndexFlatL2(embeddings.shape[1]))
+    index.add(embeddings)
+    return index
 
 
 def _initialize_retrieval() -> None:
@@ -183,12 +191,7 @@ def _initialize_retrieval() -> None:
         except Exception as exc:  # noqa: BLE001
             log.warning("Could not load persisted index: %s — rebuilding", exc)
 
-    # Rebuild
-    embeddings = embedder.encode(
-        [d["text"] for d in docs], convert_to_numpy=True
-    ).astype(np.float32)
-    index = cast(Any, faiss.IndexFlatL2(embeddings.shape[1]))
-    index.add(embeddings)
+    index = _build_index(embedder, docs)
 
     try:
         faiss.write_index(index, str(INDEX_PATH))
@@ -216,7 +219,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Ledger RAG Service", version="0.5.0", lifespan=lifespan)
+app = FastAPI(title="Ledger RAG Service", version="0.6.0", lifespan=lifespan)
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +334,7 @@ def _retrieve_relevant_docs(query_text: str, k: int = 6) -> list[str]:
     if not embedder or not index or not docs:
         return [d["text"] for d in _all_docs()][:k]
 
-    q = embedder.encode([query_text], convert_to_numpy=True).astype(np.float32)
+    q = _encode(embedder, [query_text])
     _, indices = index.search(q, min(k, len(docs)))
     retrieved = [docs[i]["text"] for i in indices[0] if i >= 0 and i < len(docs)]
     seen: set[str] = set()
@@ -342,6 +345,77 @@ def _retrieve_relevant_docs(query_text: str, k: int = 6) -> list[str]:
             seen.add(norm)
             deduped.append(doc)
     return deduped
+
+
+PROGRAM_HINTS = {
+    "air-india": ("air india", "maharaja", "vistara"),
+    "indigo": ("indigo", "bluchip"),
+    "marriott": ("marriott", "bonvoy"),
+    "hilton": ("hilton",),
+    "ihg": ("ihg",),
+}
+
+
+def _requested_program_keys(programs: list[str]) -> set[str]:
+    keys: set[str] = set()
+    for name in programs:
+        text = _normalize_text(name)
+        for key, hints in PROGRAM_HINTS.items():
+            if any(h in text for h in hints):
+                keys.add(key)
+    return keys
+
+
+def _retrieve_with_scores(
+    query_text: str, k: int, min_score: float, programs: list[str]
+) -> list[dict[str, Any]]:
+    """Top-k passages at or above `min_score` cosine similarity.
+
+    Passages tied to a requested program get a small boost so program-specific
+    rules surface ahead of generic ones. Below-threshold passages are dropped:
+    returning nothing is better than returning irrelevant "evidence".
+    """
+    embedder = _state["embedder"]
+    index = _state["index"]
+    docs = _state["docs"]
+    if not embedder or index is None or not docs:
+        return []
+
+    wanted = _requested_program_keys(programs)
+    q = _encode(embedder, [query_text])
+    distances, indices = index.search(q, min(len(docs), max(k * 3, 10)))
+
+    scored: list[dict[str, Any]] = []
+    for dist, i in zip(distances[0], indices[0]):
+        if i < 0 or i >= len(docs):
+            continue
+        doc = docs[i]
+        score = 1.0 - float(dist) / 2.0  # squared L2 on unit vectors -> cosine
+        if wanted and doc.get("program_key") in wanted:
+            score += 0.05
+        if score < min_score:
+            continue
+        scored.append({
+            "id": doc["id"],
+            "title": doc.get("title", ""),
+            "text": doc["text"],
+            "source": doc.get("source", ""),
+            "type": doc.get("type", ""),
+            "score": round(min(score, 1.0), 4),
+            "program_key": doc.get("program_key"),
+            "program_type": doc.get("program_type"),
+        })
+
+    scored.sort(key=lambda d: d["score"], reverse=True)
+    seen: set[str] = set()
+    unique: list[dict[str, Any]] = []
+    for item in scored:
+        norm = _normalize_text(item["text"])
+        if norm in seen:
+            continue
+        seen.add(norm)
+        unique.append(item)
+    return unique[:k]
 
 
 # ---------------------------------------------------------------------------
@@ -475,6 +549,31 @@ def health_ready():
         "llmConfigured": _state["client"] is not None,
         "cacheSize": len(_completion_cache),
     }
+
+
+@app.post("/retrieve", response_model=RetrieveResponse)
+def retrieve(request: RetrieveRequest):
+    """Evidence retrieval for the agent: scored, citable policy passages."""
+    if not _state["ready"]:
+        raise HTTPException(status_code=503, detail="RAG service not ready yet — try again in a moment.")
+
+    programs = sorted({p.strip()[:60] for p in request.programs if p.strip()})
+    key = _cache_key(json.dumps(
+        {"q": request.query, "k": request.k, "p": programs, "m": request.min_score}, sort_keys=True
+    ))
+    if (hit := _retrieve_cache.get(key)) is not None:
+        return RetrieveResponse(**hit, cached=True)
+
+    query_text = request.query if not programs else f"{request.query} {' '.join(programs)}"
+    evidence = _retrieve_with_scores(query_text, request.k, request.min_score, programs)
+    payload = {
+        "evidence": evidence,
+        "sufficient": len(evidence) > 0,
+        "min_score": request.min_score,
+        "index_size": len(_state["docs"]),
+    }
+    _retrieve_cache[key] = payload
+    return RetrieveResponse(**payload)
 
 
 @app.post("/explain", response_model=ExplainResponse)

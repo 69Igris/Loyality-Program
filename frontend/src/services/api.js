@@ -1,3 +1,5 @@
+import { readAgentStream } from './agentStream';
+
 // Centralized API client for the Ledger frontend.
 // Reads VITE_API_URL in production; falls back to localhost:5000 in dev.
 
@@ -119,3 +121,42 @@ export async function optimizeTrip({ userData, trip }) {
   if (userData) body.userData = userData;
   return request('/api/optimize', { method: 'POST', body });
 }
+
+// --- Agentic assistant (requires auth) ---
+// Streams workflow events (phase / tool) as they happen, then resolves with the
+// final structured result. Falls back to plain JSON if the body can't stream.
+export const assistant = {
+  async chat({ message, conversationId }, { onEvent, signal } = {}) {
+    const endpoint = `${API_URL}/api/agent/chat`;
+    let response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: buildHeaders({ Accept: 'application/x-ndjson' }),
+        body: JSON.stringify(conversationId ? { message, conversationId } : { message }),
+        signal,
+      });
+    } catch (networkError) {
+      if (networkError?.name === 'AbortError') throw networkError;
+      throw new Error('Could not reach the server. Check your connection and try again.');
+    }
+
+    if (!response.ok) {
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        /* non-JSON error body */
+      }
+      const error = new Error(payload?.error || payload?.message || `Request failed (${response.status}).`);
+      error.status = response.status;
+      throw error;
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('ndjson') || !response.body?.getReader) {
+      return response.json();
+    }
+    return readAgentStream(response.body.getReader(), onEvent);
+  },
+};

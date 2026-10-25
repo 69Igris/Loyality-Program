@@ -10,6 +10,7 @@ import explainRoutes from './routes/explain.js';
 import loyaltyRoutes from './routes/loyalty.js';
 import tripRoutes from './routes/trips.js';
 import { optionalAuth } from './middleware/auth.js';
+import { createAgentRouter } from './routes/agent.js';
 import { authLimiter, optimizeLimiter, writeLimiter } from './middleware/rateLimit.js';
 import { logger } from './lib/logger.js';
 
@@ -78,6 +79,9 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/cards', writeLimiter, cardRoutes);
 app.use('/api/loyalty', writeLimiter, loyaltyRoutes);
 app.use('/api/trips', tripRoutes);
+
+// Agentic assistant — authenticated, read-only, per-user rate limit (see routes/agent.js)
+app.use('/api/agent', createAgentRouter());
 
 // Optimizer — accepts both authed and anonymous; rate-limited and softly authed
 app.use('/api', optimizeLimiter, optionalAuth, explainRoutes);

@@ -11,6 +11,7 @@ import TripHistoryPage from './pages/TripHistoryPage';
 import TripDetailPage from './pages/TripDetailPage';
 import RequireAuth from './components/RequireAuth';
 import UserMenu from './components/UserMenu';
+import AssistantWidget from './components/assistant/AssistantWidget';
 import PageTransition from './components/PageTransition';
 import { useAuth } from './contexts/AuthContext';
 
@@ -52,7 +53,7 @@ function NavItem({ to, children }) {
 
 function App() {
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
 
   return (
     <div className="relative z-10 min-h-screen">
@@ -138,6 +139,9 @@ function App() {
           </div>
         </div>
       </footer>
+
+      {/* App-wide assistant launcher (signed-in users only) */}
+      <AssistantWidget key={user?.id ?? 'signed-out'} />
     </div>
   );
 }
