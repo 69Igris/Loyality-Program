@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "test": "LOG_LEVEL=silent node --test tests/*.test.js",
     "dev": "node --watch server.js | pino-pretty -c -t -i pid,hostname",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",

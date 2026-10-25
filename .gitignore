@@ -54,3 +54,5 @@ coverage/
 *.sln
 *.sw?
 .cache/
+# Local tooling output (gstack browser reports, etc.)
+.gstack/

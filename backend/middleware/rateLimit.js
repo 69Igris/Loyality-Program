@@ -28,3 +28,13 @@ export const writeLimiter = rateLimit({
   standardHeaders,
   legacyHeaders,
 });
+
+// Agent queries call an LLM several times, so they get a tighter, per-user budget.
+export const agentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.AGENT_RATE_LIMIT_PER_MIN) || 12,
+  keyGenerator: (req) => (req.user?.id ? `user:${req.user.id}` : req.ip),
+  message: { error: 'Too many assistant requests. Please wait a minute and try again.' },
+  standardHeaders,
+  legacyHeaders,
+});

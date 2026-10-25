@@ -12,6 +12,10 @@ services:
         sync: false
       - key: RAG_SERVICE_URL
         sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: AGENT_LLM_MODEL
+        value: openai/gpt-oss-120b
 
   - type: web
     name: loyalty-rag-service

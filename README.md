@@ -16,6 +16,7 @@ The app combines:
 - React + Vite frontend (trip input, JSON upload, strategy dashboard)
 - Node.js + Express optimizer API (pricing + redemption engine)
 - FastAPI RAG explanation service (human-readable strategy explanation)
+- Agentic redemption assistant: Groq tool calling + FAISS policy evidence + deterministic scoring (see below)
 
 ## Key Features
 
@@ -54,6 +55,7 @@ Both POST routes use the same optimizer controller.
 Base URL: http://localhost:8000
 
 - POST /explain
+- POST /retrieve (scored, citable policy evidence for the agent)
 
 Consumes optimizer context and returns a concise explanation while enforcing strict domain rules (flight points for flights, hotel points for stays, wallet flexible).
 
@@ -160,7 +162,11 @@ Supported keys:
 PORT=5000
 CORS_ORIGIN=http://localhost:5173
 RAG_SERVICE_URL=http://127.0.0.1:8000
+GROQ_API_KEY=your_groq_api_key_here      # assistant planner + narrative (optional)
+AGENT_LLM_MODEL=openai/gpt-oss-120b      # any Groq model with tool calling
 ```
+
+See backend/.env.example for the agent's limits (turns, tool calls, timeouts, rate limit, scoring weights).
 
 For production backend deployment, include your Vercel domain in CORS_ORIGIN as a comma-separated list:
 
@@ -293,6 +299,70 @@ Response includes (truncated):
 }
 ```
 
+## Agentic Redemption Assistant
+
+An **Ask Ledger** button in the bottom-right corner of every page (signed-in users) opens a conversational assistant that plans redemptions with tools instead of only generating text. The panel opens compact over the page; expand it to see the full recommendation, comparison table, math and policy evidence next to the chat. The conversation persists while you move between pages and is cleared when a different user signs in. It is **read-only**: it reads, compares, calculates and recommends; it never books, purchases or transfers points.
+
+### How a request flows
+
+```text
+React AssistantWidget ──POST /api/agent/chat (JWT, NDJSON stream)──► Express
+  understand   deterministic slot parsing (city, nights, points, preferences) + conversation memory
+  clarify      asks a follow-up when an essential (destination, flight origin) is missing
+  plan         Groq LLM picks tools from a 4-tool allowlist (bounded turns / calls / timeouts)
+  ensure       workflow runs any mandatory step the LLM skipped
+  verify       evidence sufficiency, stored-data vs policy conflicts, sample-data notices
+  respond      LLM writes from a FACTS block; every number is checked against it, else a template is used
+                    │
+                    ├─ get_loyalty_balance        Prisma, scoped to req.user.id (never an argument)
+                    ├─ search_redemption_options  sample award catalog (backend/agent/catalog.js)
+                    ├─ compare_redemptions        deterministic scoring (backend/agent/scoring.js)
+                    └─ get_recommendation_context FastAPI POST /retrieve (FAISS + MiniLM)
+```
+
+| Module | Responsibility |
+|---|---|
+| `backend/agent/intent.js` | Slot extraction, clarification rules |
+| `backend/agent/tools.js` | Zod-validated (strict) tool schemas, handlers, timeouts |
+| `backend/agent/scoring.js` | Value per point, hard constraints, weighted score, head-to-head |
+| `backend/agent/catalog.js` | Sample award catalog over `lib/pricing.js` route pricing |
+| `backend/agent/workflow.js` | State machine, budgets, trace, conversation memory |
+| `backend/agent/narrative.js` | Facts block, numeric fact-check, citation cleanup, templates |
+| `backend/agent/llm.js`, `ragClient.js` | Groq REST client and RAG client with timeouts + backoff retries |
+| `rag_service/knowledge.py` | Citable policy corpus (ids, titles, program metadata) |
+
+### Scoring
+
+Hard constraints remove an option before scoring: wrong category/destination, no balance in that program, balance below the points price, above a stated points or cash limit. Eligible options get criterion scores in 0–1:
+
+- **value** = option's value ratio ÷ best ratio in the set, where value per point = (cash price − cash payable) ÷ points and ratio = value per point ÷ baseline (your stored conversion rate, else a sample reference value)
+- **points** = fewest points in the set ÷ option's points
+- **cash** = 1 − cash payable ÷ cash price
+- **preference** = share of stated preferences met (nonstop, minimum stars, refundable)
+- **reliability** = data-source reliability (sample catalog = 0.6)
+
+`score = 100 × Σ weight × criterion`, with presets `balanced`, `best_value`, `fewer_points`, `lower_cash` (override with `AGENT_SCORING_WEIGHTS`). Wallet and card points are also offered as partial "pay with points" options at their stored conversion rate.
+
+### Data honesty
+
+- There is no live airline/hotel inventory integration. Options come from a **sample catalog** (illustrative award charts over the optimizer's controlled route pricing, 8 Indian cities) and every response says so.
+- Balances always come from the database. A points figure typed by the user is only used when nothing is stored, and is labelled as an assumption.
+- Policy passages are Ledger's illustrative handbook, not official program terms. Below the relevance threshold nothing is cited and the answer says the policy is unconfirmed.
+
+### Guardrails
+
+Auth required (`requireAuth`), per-user rate limit (`AGENT_RATE_LIMIT_PER_MIN`), strict Zod body + tool-argument validation (unknown keys such as `userId` are rejected), 4-tool allowlist, conversation memory keyed by user id + conversation id (no cross-user resume), slot pinning so the model cannot silently search another city, unknown option ids ignored, tool-call / turn / time budgets, provider error bodies never surfaced, booking claims in LLM output rejected.
+
+### API
+
+`POST /api/agent/chat` with `{ "message": "...", "conversationId": "<uuid from previous reply>" }`. Send `Accept: application/x-ndjson` to stream `phase` and `tool` events followed by `{ "type": "result", "result": {...} }`; otherwise a single JSON result is returned. The result includes `message`, `recommendation`, `alternatives`, `ineligible`, `headToHead`, `calculations`, `evidence`, `evidenceStatus`, `assumptions`, `notices`, `followUps`, `clarification`, `trace` and `usage`.
+
+### Limitations
+
+- Conversation memory is in-process (1 h TTL): it resets on restart and is not shared across replicas.
+- Only the 8 supported cities, economy flights and four sample hotel products are modelled.
+- Free-tier Groq rate limits can interrupt the LLM planner; the workflow then finishes the steps and the response says so.
+
 ## Optimizer Rules
 
 The optimizer enforces these core rules:
@@ -323,6 +393,12 @@ The optimizer enforces these core rules:
 - If explanation is missing:
 	- Ensure FastAPI RAG service is up on port 8000
 	- Ensure GROQ_API_KEY is set in rag_service/.env
+- If `npm start` fails with `EADDRINUSE :::5000` on macOS:
+	- macOS AirPlay Receiver (ControlCenter) listens on port 5000. Set PORT=5001 in backend/.env and VITE_API_URL=http://localhost:5001 in frontend/.env (or turn off AirPlay Receiver in System Settings → General → AirDrop & Handoff)
+- If the assistant says the AI planner was unavailable:
+	- Set GROQ_API_KEY in backend/.env and check AGENT_LLM_MODEL is listed for your key (GET https://api.groq.com/openai/v1/models)
+- If policy evidence is "unavailable":
+	- Ensure the RAG service is running and RAG_SERVICE_URL points at it
 - If styles look stale:
 	- Restart Vite dev server and hard refresh browser
 
@@ -337,3 +413,8 @@ Frontend scripts (run from frontend folder):
 Backend scripts (run from backend folder):
 
 - npm start: Start Express optimizer API
+- npm test: Agent, scoring, tool, API and optimizer tests (node:test, LLM/RAG/DB mocked)
+
+Frontend tests: `npm test` in frontend (stream parsing and error mapping).
+
+RAG service tests: `python -m pytest tests` in rag_service (deterministic fake embedder, no model download).
